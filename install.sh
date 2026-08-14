@@ -86,6 +86,7 @@ do_checks() {
     check_dependencies
 }
 
+
 # ===============================
 # Installation functions
 # ===============================
@@ -227,11 +228,34 @@ install() {
 
 
 # ===============================
+# Misc
+# ===============================
+
+open_launcher_prompt() {
+    echo "Would you like to open Classic-Counter launcher?"
+    read -rp "(y/N): " confirm
+
+    case "$confirm" in
+        [yY]|[yY][eE][sS])
+            print_info "Starting launcher..."
+            exec "$CC_DIR/launch.sh"
+            ;;
+        *)
+            print_info "Exiting."
+            exit 0
+            ;;
+    esac
+}
+
+
+# ===============================
 # Main
 # ===============================
 
 main() {
     do_checks
     install
+
+    open_launcher_prompt
 }
 main
