@@ -8,7 +8,7 @@ Script for installing Classic-Counter launcher on linux. Automatically downloads
 ### 1. Install dependencies
 #### Arch Linux (or Steam Deck)
 ```shell
-sudo pacman -S steam wget tar winetricks
+sudo pacman -S steam wget winetricks jq
 ```
 
 ### 2. Run this script
