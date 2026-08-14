@@ -32,6 +32,59 @@ print_success() {
     echo -e "\033[32m[SUCCESS]: $msg\033[0m"
 }
 
+print_info() {
+    local msg=$1
+    echo -e "\033[0m[INFO]: $msg\033[0m"
+}
+
+
+# ===============================
+# Checks
+# ===============================
+
+check_steam() {
+    print_info "Checking if ~/.steam exists..."
+    if [ ! -d "$STEAM_DIR" ]; then
+        print_error "Steam not found! Maybe you're using flatpak version? Install Steam or reinstall Steam with your native package manager."
+        exit 1
+    fi
+    print_success "Steam was found."
+}
+
+check_compat_tool_paths() {
+    print_info "Checking if SteamLinuxRuntime_sniper exists..."
+    if [ ! -d "$STEAM_DIR/steamapps/common/SteamLinuxRuntime_sniper" ]; then
+        print_error "File not found! Install SteamLinuxRuntime_sniper! Exiting..."
+        exit 1
+    fi
+    print_success "File was found."
+}
+
+check_dependencies() {
+    print_info "Checking required dependencies..."
+    local deps=("curl" "jq" "wget" "tar" "awk" "winetricks" "sha256sum" "sha512sum")
+    local missing=()
+
+    for cmd in "${deps[@]}"; do
+        if ! command -v "$cmd" &>/dev/null; then
+            missing+=("$cmd")
+        fi
+    done
+
+    if [ ${#missing[@]} -ne 0 ]; then
+        print_error "Missing required commands: ${missing[*]}"
+        print_error "Please install them via your package manager."
+        exit 1
+    fi
+    print_success "All dependencies are installed."
+}
+
+do_checks() {
+    check_steam
+    check_compat_tool_paths
+    
+    check_dependencies
+}
 
 # ===============================
 # Installation functions
@@ -178,6 +231,7 @@ install() {
 # ===============================
 
 main() {
+    do_checks
     install
 }
 main
