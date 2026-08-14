@@ -1,9 +1,8 @@
 #!/bin/bash
+set -euo pipefail
+
 CC_DIR="$HOME/.classic-counter"
 STEAM_DIR="$HOME/.local/share/Steam"
-
-WAUNCHER_URL="https://github.com/ClassicCounter/launcher/releases/download/3.2.6/wauncher.exe"
-PROTON_URL="https://github.com/GloriousEggroll/proton-ge-custom/releases/download/GE-Proton10-34/GE-Proton10-34.tar.gz"
 
 export PROTON_DIR="$CC_DIR/proton"
 export PROTON="$PROTON_DIR/proton"
@@ -20,17 +19,78 @@ export WINEPREFIX="$STEAM_COMPAT_DATA_PATH/pfx"
 
 
 # ===============================
+# Messages
+# ===============================
+
+print_error() {
+    local msg=$1
+    echo -e "\033[31m[ERROR]: $msg\033[0m"
+}
+
+print_success() {
+    local msg=$1
+    echo -e "\033[32m[SUCCESS]: $msg\033[0m"
+}
+
+
+# ===============================
 # Installation functions
 # ===============================
 
 download_wauncher() {
-    wget -N $WAUNCHER_URL
+    curl -sSf "https://api.github.com/repos/ClassicCounter/launcher/releases/latest" \
+        > wauncher_release.json
+
+    WAUNCHER_URL=$(jq -r '.assets[0].browser_download_url' wauncher_release.json)
+    WAUNCHER_HASH=$(jq -r '.assets[0].digest' wauncher_release.json | sed 's/sha256://')
+    WAUNCHER_FILENAME=$(jq -r '.assets[0].name' wauncher_release.json)
+    
+    # Check for valid json structure or API errors
+    if [ -z "$WAUNCHER_URL" ] || [ "$WAUNCHER_URL" = "null" ]; then
+        print_error "wauncher.exe: could not determine download URL from GitHub API response."
+        exit 1
+    fi
+
+    wget -N "$WAUNCHER_URL"
+
+    # Hash validation
+    if [ -n "$WAUNCHER_HASH" ] && [ "$WAUNCHER_HASH" != "null" ]; then
+        if ! echo "$WAUNCHER_HASH  $WAUNCHER_FILENAME" | sha256sum -c -; then
+            print_error "wauncher.exe: Checksum mismatch! File may be corrupted."
+            rm -f "$WAUNCHER_FILENAME"
+            exit 1
+        fi
+        print_success "wauncher.exe: Checksum verification successful."
+    else
+        print_error "wauncher.exe: Checksum not found in release API or API returned null."
+        exit 1
+    fi
+
+    rm wauncher_release.json
 }
 
 download_proton() {
-    wget -O proton.tar.gz $PROTON_URL
-    mkdir -p $PROTON_DIR
-    tar -xf proton.tar.gz --strip-components=1 -C $PROTON_DIR
+    # Hardcoded Proton-GE version that works fine with Classic-Counter 
+    PROTON_URL="https://github.com/GloriousEggroll/proton-ge-custom/releases/download/GE-Proton10-34/GE-Proton10-34.tar.gz"
+    PROTON_HASH_URL="https://github.com/GloriousEggroll/proton-ge-custom/releases/download/GE-Proton10-34/GE-Proton10-34.sha512sum"
+    PROTON_FILENAME="proton.tar.gz"
+
+    wget -O "$PROTON_FILENAME" "$PROTON_URL"
+    wget -O "$PROTON_FILENAME.sha512sum" "$PROTON_HASH_URL"
+
+    HASH_VAL=$(awk '{print $1}' "$PROTON_FILENAME.sha512sum")
+
+    # Hash validation
+    if ! echo "$HASH_VAL  $PROTON_FILENAME" | sha512sum -c -; then
+        print_error "proton.tar.gz: Checksum mismatch! File may be corrupted."
+        rm -f "$PROTON_FILENAME" "$PROTON_FILENAME.sha512sum"
+        exit 1
+    fi
+    print_success "proton.tar.gz: Checksum verification successful."
+    rm -f "$PROTON_FILENAME.sha512sum"
+
+    mkdir -p "$PROTON_DIR"
+    tar -xf proton.tar.gz --strip-components=1 -C "$PROTON_DIR"
     rm proton.tar.gz
 }
 
@@ -103,7 +163,7 @@ link_desktop_file() {
 }
 
 install() {
-    mkdir -p $CC_DIR && cd $CC_DIR
+    mkdir -p "$CC_DIR" && cd "$CC_DIR"
     download_wauncher
     download_proton
     init_prefix
